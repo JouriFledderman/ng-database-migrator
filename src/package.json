@@ -1,0 +1,21 @@
+{
+  "name": "ng-database-migrator",
+  "version": "1.0",
+  "description": "AngularJS module for database migrations",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/angular/angular.js.git"
+  },
+  "keywords": [
+    "angular",
+    "framework",
+    "database",
+    "migrations"
+  ],
+  "author": "Jouri Fledderman <jouri.fledderman@luminis.eu>",
+  "license": "MIT"
+}
