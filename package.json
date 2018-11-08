@@ -1,14 +1,14 @@
 {
-  "name": "ng-database-migrator",
+  "name": "ng-database-updater",
   "version": "1.0.0",
-  "description": "AngularJS module for database migrations",
+  "description": "AngularJS module for database updates",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/JouriFledderman/ng-database-migrator"
+    "url": "https://github.com/JouriFledderman/ng-database-updater"
   },
   "keywords": [
     "angular",

@@ -1,6 +1,6 @@
 {
-  "name": "ng-database-migrator",
-  "description": "AngularJS module for database migrations",
+  "name": "ng-database-updater",
+  "description": "AngularJS module for database updates",
   "main": "index.js",
   "authors": [
     "Jouri Fledderman <jouri.fledderman@luminis.eu>"
@@ -10,9 +10,10 @@
     "angular",
     "framework",
     "database",
+    "updates",
     "migrations"
   ],
-  "homepage": "https://github.com/JouriFledderman/ng-database-migrator",
+  "homepage": "https://github.com/JouriFledderman/ng-database-updater",
   "private": true,
   "ignore": [
     "**/.*",

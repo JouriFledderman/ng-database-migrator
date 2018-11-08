@@ -1,11 +1,11 @@
 (function () {
     'use strict';
 
-    angular.module('ngDatabaseMigrator', []);
+    angular.module('ngDatabaseUpdater', []);
 
-    angular.module('ngDatabaseMigrator').
+    angular.module('ngDatabaseUpdater').
 
-    factory('$databasemigrator', ['$q', function($q) {
+    factory('$databaseupdater', ['$q', function($q) {
 
         var _logger = null;
 
@@ -13,11 +13,11 @@
         var _active = false;
 
         /**
-         * @param database - the database to validate the migrations against
+         * @param database - the database to validate the updates against
          * @param updates - a list with schema version updates consisting of the following fields
          * {
          *     version: number - the version of the script
-         *     script: string - the actual sqlite updatescript
+         *     script: string - the actual sql(ite) updatescript
          * }
          * @param logger - a logger
          */
@@ -28,7 +28,7 @@
                 _logger = logger;
                 _active = true;
 
-                _log('debug', "DATEBASEMIGRATOR.INITIALIZE()");
+                _log('debug', "DATEBASEUPDATER.INITIALIZE()");
                 _transaction(database,
                     function (tx) {
                         tx.executeSql("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER, checksum INTEGER)", [], function () {
@@ -62,7 +62,7 @@
                             });
                         });
                     }, function (error) {
-                        _log('info', 'Something went wrong during the migration of the database');
+                        _log('info', 'Something went while updating the database');
                         _log('error', error.message);
 
                         _logger = null;
@@ -207,7 +207,7 @@
 
             tx.executeSql(currentUpdate.script, [], function (tx, results) {
                 tx.executeSql("INSERT INTO schema_version (version, checksum) VALUES(?, ?)", [currentUpdate.version, _checksum(currentUpdate.script)], function (tx, results) {
-                    _log('info', 'Successfully migrated database to version ' + currentUpdate.version);
+                    _log('info', 'Successfully updated database to version ' + currentUpdate.version);
 
                     updateIndex++;
                     if (updates.length > updateIndex) {
@@ -221,7 +221,7 @@
                     promise.reject(error);
                 });
             }, function (error) {
-                _log('info', 'Something went wrong while updating database to ' + currentUpdate.version + ', migration was not executed');
+                _log('info', 'Something went wrong while updating database to ' + currentUpdate.version + ', update was not executed');
                 _log('error', error.message);
                 promise.reject(error);
             })
