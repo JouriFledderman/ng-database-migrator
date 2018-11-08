@@ -143,13 +143,13 @@
                     if (results.rows.length == 1) {
                         var schemaVersion = _construct(results.rows.item(0));
                         if (schemaVersion.checksum === _checksum(currentUpdate.script)) {
-                            _log('info', 'Checksum still valid for script with version ' + currentUpdate.version);
+                            _log('info', 'Checksum is valid for script with version ' + currentUpdate.version);
 
                             updateIndex++;
                             if (updates.length > updateIndex) {
                                 _updatevalid(promise, updates, updateIndex);
                             } else {
-                                _log('info', 'All checksums still valid');
+                                _log('info', 'All checksums are valid');
                                 promise.resolve();
                             }
                         } else {
