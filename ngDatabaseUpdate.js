@@ -16,6 +16,10 @@
         /* we do not want this function to be called during an update */
         var _active = false;
 
+        return {
+            initialize: initialize
+        }
+
         /**
          * @param database - the database to validate the updates against
          * @param updates - a list with schema version updates consisting of the following fields
@@ -79,6 +83,10 @@
             return defer.promise;
         }
 
+        /**
+         * simple function that resets the value to what they should be
+         * @private
+         */
         function _tearDown() {
             _logger = null;
             _database = null;
@@ -89,6 +97,7 @@
          * function to get a transaction from the provided database
          * @param database - the provided database
          * @param fn - callback function
+         * @private
          */
         function _transaction(database, fn, error, success) {
             if ((database !== undefined) && (database != null)) {
@@ -100,6 +109,7 @@
          * function to construct a schermaversion object from a row
          * @param row - the database row
          * @returns {{version: *, checksum: *}}
+         * @private
          */
         function _construct(row) {
             return {version: row['version'], checksum: row['checksum']};
@@ -109,6 +119,7 @@
          * Function to check if the checksums of previous updates are still valid
          * @param updates - the full set of database updates
          * @param schemaVersion - current schema version
+         * @private
          */
         function _checksumvalid(schemaVersion, updates) {
             var defer = $q.defer();
@@ -134,6 +145,7 @@
          * @param updates - the full set of database updates
          * @param updateIndex - the current update index
          * @returns {boolean} - whether the update was successfull or not
+         * @private
          */
         function _updatevalid(promise, updates, updateIndex) {
             var currentUpdate = updates[updateIndex];
@@ -171,6 +183,7 @@
          * function to obtain the checksum from a string
          * @param string - the provided string
          * @returns {number} - the checksum
+         * @private
          */
         function _checksum(string) {
             var hash = 0, i, chr;
@@ -187,6 +200,7 @@
          * function to collect the new scripts and initialize the update
          * @param schemaVersion - the database schema version before the update
          * @param updates - the list of updates
+         * @private
          */
         function _updateSchema(schemaVersion, updates) {
             var defer = $q.defer();
@@ -211,6 +225,7 @@
          * @param promise - the current promise
          * @param updates - the list of updates
          * @param updateIndex - the current update index
+         * @private
          */
         function _executeUpdate(promise, updates, updateIndex) {
             var currentUpdate = updates[updateIndex];
@@ -242,6 +257,12 @@
             })
         }
 
+        /**
+         * function to log a message at a certain level with the provided logger
+         * @param level - the loglevel at which the message is logged
+         * @param message - the message that is logged
+         * @private
+         */
         function _log(level, message) {
             if (_logger !== null && _logger !== undefined) {
                 switch (level) {
@@ -261,10 +282,6 @@
                         _logger.debug(message);
                 }
             }
-        }
-
-        return {
-            initialize: initialize
         }
     }]);
 })();
