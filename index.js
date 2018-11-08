@@ -1,2 +1,2 @@
-require('./database-migrator');
+require('./ngDatabaseMigrator');
 module.exports = '$databasemigrator';
