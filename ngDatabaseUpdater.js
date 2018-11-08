@@ -9,6 +9,8 @@
 
         var _logger = null;
 
+        var _database = null;
+
         /* we do not want this function to be call */
         var _active = false;
 
@@ -26,10 +28,11 @@
 
             if (!_active) {
                 _logger = logger;
+                _database = database;
                 _active = true;
 
                 _log('debug', "DATEBASEUPDATER.INITIALIZE()");
-                _transaction(database,
+                _transaction(_database,
                     function (tx) {
                         tx.executeSql("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER, checksum INTEGER)", [], function () {
 
@@ -45,8 +48,8 @@
                                 _log('info', "Schema is currently at version " + schemaVersion);
                                 _log('info', "Checking for updates...");
 
-                                _checksumvalid(tx, schemaVersion, updates).then(function () {
-                                    _updateSchema(tx, schemaVersion, updates).then(function (updateVersion) {
+                                _checksumvalid(schemaVersion, updates).then(function () {
+                                    _updateSchema(schemaVersion, updates).then(function (updateVersion) {
                                         if (schemaVersion === updateVersion) {
                                             _log('info', 'No updates found! Schema is up to date');
                                         } else {
@@ -65,18 +68,22 @@
                         _log('info', 'Something went while updating the database');
                         _log('error', error.message);
 
-                        _logger = null;
-                        _active = false;
+                        _tearDown();
                         defer.reject();
                     }, function () {
-                        _logger = null;
-                        _active = false;
+                        _tearDown();
                     });
             } else {
                 defer.resolve();
             }
 
             return defer.promise;
+        }
+
+        function _tearDown() {
+            _logger = null;
+            _database = null;
+            _active = false;
         }
 
         /**
@@ -101,10 +108,10 @@
 
         /**
          * Function to check if the checksums of previous updates are still valid
-         * @param tx - database transaction
+         * @param updates - the full set of database updates
          * @param schemaVersion - current schema version
          */
-        function _checksumvalid(tx, schemaVersion, updates) {
+        function _checksumvalid(schemaVersion, updates) {
             var defer = $q.defer();
 
             var previouslyExecutedUpdates = updates.filter(function (update) {
@@ -114,7 +121,7 @@
             });
 
             if (previouslyExecutedUpdates.length > 0) {
-                _updatevalid(defer, tx, previouslyExecutedUpdates, 0);
+                _updatevalid(defer, previouslyExecutedUpdates, 0);
             } else {
                 defer.resolve();
             }
@@ -124,35 +131,37 @@
 
         /**
          * function to check if a single update contain still matches the checksum with which it was added to the database
-         * @param tx - the current database transaction
+         * @param promise - the current promise
          * @param updates - the full set of database updates
          * @param updateIndex - the current update index
          * @returns {boolean} - whether the update was successfull or not
          */
-        function _updatevalid(promise, tx, updates, updateIndex) {
+        function _updatevalid(promise, updates, updateIndex) {
             var currentUpdate = updates[updateIndex];
 
-            tx.executeSql("SELECT * FROM schema_version WHERE version=? LIMIT 1", [currentUpdate.version], function (tx, results) {
-                if (results.rows.length == 1) {
-                    var schemaVersion = _construct(results.rows.item(0));
-                    if (schemaVersion.checksum === _checksum(currentUpdate.script)) {
-                        _log('info', 'Checksum still valid for script with version ' + currentUpdate.version);
+            _transaction(_database, function(tx) {
+                tx.executeSql("SELECT * FROM schema_version WHERE version=? LIMIT 1", [currentUpdate.version], function (tx, results) {
+                    if (results.rows.length == 1) {
+                        var schemaVersion = _construct(results.rows.item(0));
+                        if (schemaVersion.checksum === _checksum(currentUpdate.script)) {
+                            _log('info', 'Checksum still valid for script with version ' + currentUpdate.version);
 
-                        updateIndex++;
-                        if (updates.length > updateIndex) {
-                            _updatevalid(promise, tx, updates, updateIndex);
+                            updateIndex++;
+                            if (updates.length > updateIndex) {
+                                _updatevalid(promise, updates, updateIndex);
+                            } else {
+                                _log('info', 'All checksums still valid');
+                                promise.resolve();
+                            }
                         } else {
-                            _log('info', 'All checksums still valid');
-                            promise.resolve();
+                            _log('error', 'Incorrect checksum found for script with version ' + currentUpdate.version + '. File has checksum ' + _checksum(currentUpdate.script) + ' while database has checksum ' + schemaVersion.checksum);
+                            promise.reject();
                         }
                     } else {
-                        _log('error', 'Incorrect checksum found for script with version ' + currentUpdate.version + '. File has checksum ' + _checksum(currentUpdate.script) + ' while database has checksum ' + schemaVersion.checksum);
+                        _log('error', 'No record found in the database for script with version ' + currentUpdate.version);
                         promise.reject();
                     }
-                } else {
-                    _log('error', 'No record found in the database for script with version ' + currentUpdate.version);
-                    promise.reject();
-                }
+                });
             });
         }
 
@@ -174,11 +183,10 @@
 
         /**
          * function to collect the new scripts and initialize the update
-         * @param tx - the current database transaction
          * @param schemaVersion - the database schema version before the update
          * @param updates - the list of updates
          */
-        function _updateSchema(tx, schemaVersion, updates) {
+        function _updateSchema(schemaVersion, updates) {
             var defer = $q.defer();
 
             var pendingUpdates = updates.filter(function (update) {
@@ -188,7 +196,7 @@
             });
 
             if (pendingUpdates.length > 0) {
-                _executeUpdate(defer, tx, pendingUpdates, 0);
+                _executeUpdate(defer, pendingUpdates, 0);
             } else {
                 defer.resolve(schemaVersion);
             }
@@ -198,32 +206,34 @@
 
         /**
          * function to execute a single database update
-         * @param tx - the current database transaction
+         * @param promise - the current promise
          * @param updates - the list of updates
          * @param updateIndex - the current update index
          */
-        function _executeUpdate(promise, tx, updates, updateIndex) {
+        function _executeUpdate(promise, updates, updateIndex) {
             var currentUpdate = updates[updateIndex];
 
-            tx.executeSql(currentUpdate.script, [], function (tx, results) {
-                tx.executeSql("INSERT INTO schema_version (version, checksum) VALUES(?, ?)", [currentUpdate.version, _checksum(currentUpdate.script)], function (tx, results) {
-                    _log('info', 'Successfully updated database to version ' + currentUpdate.version);
+            _transaction(_database, function (tx) {
+                tx.executeSql(currentUpdate.script, [], function (tx, results) {
+                    tx.executeSql("INSERT INTO schema_version (version, checksum) VALUES(?, ?)", [currentUpdate.version, _checksum(currentUpdate.script)], function (tx, results) {
+                        _log('info', 'Successfully updated database to version ' + currentUpdate.version);
 
-                    updateIndex++;
-                    if (updates.length > updateIndex) {
-                        _executeUpdate(tx, updates, updateIndex);
-                    } else {
-                        promise.resolve(currentUpdate.version);
-                    }
+                        updateIndex++;
+                        if (updates.length > updateIndex) {
+                            _executeUpdate(tx, updates, updateIndex);
+                        } else {
+                            promise.resolve(currentUpdate.version);
+                        }
+                    }, function (error) {
+                        _log('info', 'Something went wrong while inserting version ' + currentUpdate.version + ' into schema version table, this should not happen!');
+                        _log('error', error.message);
+                        promise.reject(error);
+                    });
                 }, function (error) {
-                    _log('info', 'Something went wrong while inserting version ' + currentUpdate.version + ' into schema version table, this should not happen!');
+                    _log('info', 'Something went wrong while updating database to ' + currentUpdate.version + ', update was not executed');
                     _log('error', error.message);
                     promise.reject(error);
-                });
-            }, function (error) {
-                _log('info', 'Something went wrong while updating database to ' + currentUpdate.version + ', update was not executed');
-                _log('error', error.message);
-                promise.reject(error);
+                })
             })
         }
 
