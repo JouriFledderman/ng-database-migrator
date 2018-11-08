@@ -30,14 +30,14 @@
          * @param logger - a logger
          */
         function initialize(database, updates, logger) {
-            var defer = $q.defer();
+            _log('debug', "DATEBASEUPDATER.INITIALIZE()");
 
+            var defer = $q.defer();
             if (!_active) {
                 _logger = logger;
                 _database = database;
                 _active = true;
 
-                _log('debug', "DATEBASEUPDATER.INITIALIZE()");
                 _transaction(_database, function (tx) {
                         tx.executeSql("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER, checksum INTEGER)", [], function () {
                             _log('info', "Schema version table initialized");
@@ -77,6 +77,7 @@
                         defer.reject();
                     });
             } else {
+                _log('info', 'Updater is already running, skipping updates');
                 defer.resolve();
             }
 
