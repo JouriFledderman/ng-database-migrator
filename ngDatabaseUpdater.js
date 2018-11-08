@@ -7,11 +7,13 @@
 
     factory('$databaseupdater', ['$q', function($q) {
 
+        /* stored logger during an update */
         var _logger = null;
 
+        /* stored db during an update */
         var _database = null;
 
-        /* we do not want this function to be call */
+        /* we do not want this function to be called during an update */
         var _active = false;
 
         /**
@@ -32,10 +34,8 @@
                 _active = true;
 
                 _log('debug', "DATEBASEUPDATER.INITIALIZE()");
-                _transaction(_database,
-                    function (tx) {
+                _transaction(_database, function (tx) {
                         tx.executeSql("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER, checksum INTEGER)", [], function () {
-
                             _log('info', "Schema version table initialized");
                             _log('info', "Obtaining schema version...");
 
@@ -55,6 +55,7 @@
                                         } else {
                                             _log('info', 'Schema updated from version ' + schemaVersion + ' to ' + updateVersion);
                                         }
+                                        _tearDown();
                                         defer.resolve();
                                     }).catch(function (error) {
                                         defer.reject(error);
@@ -70,8 +71,6 @@
 
                         _tearDown();
                         defer.reject();
-                    }, function () {
-                        _tearDown();
                     });
             } else {
                 defer.resolve();
@@ -162,6 +161,9 @@
                         promise.reject();
                     }
                 });
+            }, function(error) {
+                _log('error', error.message);
+                promise.reject(error);
             });
         }
 
@@ -220,7 +222,7 @@
 
                         updateIndex++;
                         if (updates.length > updateIndex) {
-                            _executeUpdate(tx, updates, updateIndex);
+                            _executeUpdate(promise, updates, updateIndex);
                         } else {
                             promise.resolve(currentUpdate.version);
                         }
@@ -234,6 +236,9 @@
                     _log('error', error.message);
                     promise.reject(error);
                 })
+            }, function(error) {
+                _log('error', error.message);
+                promise.reject(error);
             })
         }
 
