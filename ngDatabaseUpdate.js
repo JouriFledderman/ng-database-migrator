@@ -45,7 +45,7 @@
                             let resultArr = _convertResultSetToArray(results);
                             let schemaVersion = 0;
                             if (resultArr.length > 0) {
-                                schemaVersion = _construct(resultArr[0]).version;
+                                schemaVersion = resultArr[0].version;
                             }
 
                             _log('info', "Schema is currently at version " + schemaVersion);
@@ -97,6 +97,8 @@
          * function to get a transaction from the provided database
          * @param database - the provided database
          * @param fn - callback function
+         * @param error - error callback
+         * @param success - the success callback
          * @private
          */
         function _transaction(database, fn, error, success) {
@@ -118,6 +120,7 @@
         /**
          * Function to check if the checksums of previous updates are still valid
          * @param updates - the full set of database updates
+         * @param results - the already executed scripts from the database schema_version table
          * @param schemaVersion - current schema version
          * @private
          */
@@ -166,7 +169,7 @@
         function _compare(arr1, arr2) {
             let disjunction = [];
 
-            if (arr1 === arr2 || (arr1 == null && arr2 == null) || (arr1.length === 0  && arr2.length === 0)) {
+            if ((arr1 == null && arr2 == null) || (arr1.length === 0 && arr2.length === 0)) {
                 // DO NOTHING
             } else {
                 arr1.map(item => item.version).forEach(function(item1) {
