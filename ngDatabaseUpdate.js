@@ -69,7 +69,7 @@
                         });
                     });
                 }, function (error) {
-                    _log('info', 'Something went while updating the database');
+                    _log('info', 'Something went wrong while updating the database');
                     _log('error', error.message);
 
                     _tearDown();
@@ -166,6 +166,13 @@
             return updatesValid;
         }
 
+        /**
+         * Check if an array contains items that another array does not contain
+         * @param arr1 - the first array for the comparison
+         * @param arr2 - the second array for the comparison
+         * @returns {Array}
+         * @private
+         */
         function _compare(arr1, arr2) {
             let disjunction = [];
 
@@ -182,6 +189,12 @@
             return disjunction;
         }
 
+        /**
+         * Convert a mysqlite resultset to an array
+         * @param resultSet - the given mysqlite resultset
+         * @returns {Array}
+         * @private
+         */
         function _convertResultSetToArray(resultSet) {
             let resultArray = [];
             for (let i = 0; i < resultSet.rows.length; i++) {
