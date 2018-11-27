@@ -3,22 +3,20 @@
 
     angular.module('ngDatabaseUpdater', []);
 
-    angular.module('ngDatabaseUpdater').
-
-    factory('$databaseupdater', ['$q', function($q) {
+    angular.module('ngDatabaseUpdater').factory('$databaseupdater', ['$q', function ($q) {
 
         /* stored logger during an update */
-        var _logger = null;
+        let _logger = null;
 
         /* stored db during an update */
-        var _database = null;
+        let _database = null;
 
         /* we do not want this function to be called during an update */
-        var _active = false;
+        let _active = false;
 
         return {
             initialize: initialize
-        }
+        };
 
         /**
          * @param database - the database to validate the updates against
@@ -32,50 +30,51 @@
         function initialize(database, updates, logger) {
             _log('debug', "DATEBASEUPDATER.INITIALIZE()");
 
-            var defer = $q.defer();
+            let defer = $q.defer();
             if (!_active) {
                 _logger = logger;
                 _database = database;
                 _active = true;
 
                 _transaction(_database, function (tx) {
-                        tx.executeSql("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER, checksum INTEGER)", [], function () {
-                            _log('info', "Schema version table initialized");
-                            _log('info', "Obtaining schema version...");
+                    tx.executeSql("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL PRIMARY KEY, checksum INTEGER NOT NULL)", [], function () {
+                        _log('info', "Schema version table initialized");
+                        _log('info', "Obtaining schema version...");
 
-                            tx.executeSql("SELECT * FROM schema_version ORDER BY version DESC LIMIT 1", [], function (tx, results) {
-                                var schemaVersion = 0;
-                                if (results.rows.length === 1) {
-                                    schemaVersion = _construct(results.rows.item(0)).version;
-                                }
+                        tx.executeSql("SELECT * FROM schema_version ORDER BY version DESC", [], function (tx, results) {
+                            let resultArr = _convertResultSetToArray(results);
+                            let schemaVersion = 0;
+                            if (resultArr.length > 0) {
+                                schemaVersion = _construct(resultArr[0]).version;
+                            }
 
-                                _log('info', "Schema is currently at version " + schemaVersion);
-                                _log('info', "Checking for updates...");
+                            _log('info', "Schema is currently at version " + schemaVersion);
+                            _log('info', "Checking for updates...");
 
-                                _checksumvalid(schemaVersion, updates).then(function () {
-                                    _updateSchema(schemaVersion, updates).then(function (updateVersion) {
-                                        if (schemaVersion === updateVersion) {
-                                            _log('info', 'No updates found! Schema is up to date');
-                                        } else {
-                                            _log('info', 'Schema updated from version ' + schemaVersion + ' to ' + updateVersion);
-                                        }
-                                        _tearDown();
-                                        defer.resolve();
-                                    }).catch(function (error) {
-                                        defer.reject(error);
-                                    });
+                            if (_checksumvalid(schemaVersion, updates, resultArr)) {
+                                _updateSchema(schemaVersion, updates).then(function (updateVersion) {
+                                    if (schemaVersion === updateVersion) {
+                                        _log('info', 'No updates found! Schema is up to date');
+                                    } else {
+                                        _log('info', 'Schema updated from version ' + schemaVersion + ' to ' + updateVersion);
+                                    }
+                                    _tearDown();
+                                    defer.resolve();
                                 }).catch(function (error) {
                                     defer.reject(error);
                                 });
-                            });
+                            } else {
+                                defer.reject();
+                            }
                         });
-                    }, function (error) {
-                        _log('info', 'Something went while updating the database');
-                        _log('error', error.message);
-
-                        _tearDown();
-                        defer.reject();
                     });
+                }, function (error) {
+                    _log('info', 'Something went while updating the database');
+                    _log('error', error.message);
+
+                    _tearDown();
+                    defer.reject();
+                });
             } else {
                 _log('info', 'Updater is already running, skipping updates');
                 defer.resolve();
@@ -122,62 +121,71 @@
          * @param schemaVersion - current schema version
          * @private
          */
-        function _checksumvalid(schemaVersion, updates) {
-            var defer = $q.defer();
+        function _checksumvalid(schemaVersion, updates, results) {
+            let updatesValid = true;
 
-            var previouslyExecutedUpdates = updates.filter(function (update) {
+            let previouslyExecutedUpdates = updates.filter(function (update) {
                 return update.version <= schemaVersion;
             }).sort((a, b) => {
                 return (a.version > b.version) ? 1 : (b.version > a.version) ? -1 : 0;
             });
 
-            if (previouslyExecutedUpdates.length > 0) {
-                _updatevalid(defer, previouslyExecutedUpdates, 0);
+            let disjuntionResults = _compare(results, previouslyExecutedUpdates);
+            let disjuntionUpdates = _compare(previouslyExecutedUpdates, results);
+
+            if (disjuntionResults.length > 0 || disjuntionUpdates.length > 0) {
+                if (disjuntionResults.length > 0) {
+                    _log('error', 'the following updates were found current set of updates, but not in the in the database: ' + disjuntionResults)
+                }
+                if (disjuntionUpdates.length > 0) {
+                    _log('error', 'the following updates were found in the database, but not in the current set of updates: ' + disjuntionUpdates)
+                }
+                updatesValid = false;
             } else {
-                defer.resolve();
+
+                if (results != null && results.length > 0) {
+                    results.forEach(function(result) {
+                        let update = updates.filter(item => item.version === result.version)[0];
+                        if (result.checksum !== _checksum(update.script)) {
+                            _log('error', 'Incorrect checksum found for script with version ' + update.version + '. File has checksum ' + _checksum(update.script) + ' while database has checksum ' + result.checksum);
+                            updatesValid = false;
+                        } else {
+                            _log('info', 'Checksum is valid for script with version ' + update.version);
+                        }
+                    });
+                }
             }
 
-            return defer.promise;
+            if (updatesValid) {
+                _log('info', 'All checksums are valid');
+            }
+
+            return updatesValid;
         }
 
-        /**
-         * function to check if a single update contain still matches the checksum with which it was added to the database
-         * @param promise - the current promise
-         * @param updates - the full set of database updates
-         * @param updateIndex - the current update index
-         * @returns {boolean} - whether the update was successfull or not
-         * @private
-         */
-        function _updatevalid(promise, updates, updateIndex) {
-            var currentUpdate = updates[updateIndex];
+        function _compare(arr1, arr2) {
+            let disjunction = [];
 
-            _transaction(_database, function(tx) {
-                tx.executeSql("SELECT * FROM schema_version WHERE version=? LIMIT 1", [currentUpdate.version], function (tx, results) {
-                    if (results.rows.length == 1) {
-                        var schemaVersion = _construct(results.rows.item(0));
-                        if (schemaVersion.checksum === _checksum(currentUpdate.script)) {
-                            _log('info', 'Checksum is valid for script with version ' + currentUpdate.version);
-
-                            updateIndex++;
-                            if (updates.length > updateIndex) {
-                                _updatevalid(promise, updates, updateIndex);
-                            } else {
-                                _log('info', 'All checksums are valid');
-                                promise.resolve();
-                            }
-                        } else {
-                            _log('error', 'Incorrect checksum found for script with version ' + currentUpdate.version + '. File has checksum ' + _checksum(currentUpdate.script) + ' while database has checksum ' + schemaVersion.checksum);
-                            promise.reject();
-                        }
-                    } else {
-                        _log('error', 'No record found in the database for script with version ' + currentUpdate.version);
-                        promise.reject();
+            if (arr1 === arr2 || (arr1 == null && arr2 == null) || (arr1.length === 0  && arr2.length === 0)) {
+                // DO NOTHING
+            } else {
+                arr1.map(item => item.version).forEach(function(item1) {
+                    if (!arr2.map(item => item.version).includes(item1)) {
+                        disjunction.push(item1);
                     }
                 });
-            }, function(error) {
-                _log('error', error.message);
-                promise.reject(error);
-            });
+            }
+
+            return disjunction;
+        }
+
+        function _convertResultSetToArray(resultSet) {
+            let resultArray = [];
+            for (let i = 0; i < resultSet.rows.length; i++) {
+                let row = _construct(resultSet.rows.item(i));
+                resultArray.push(row);
+            }
+            return resultArray;
         }
 
         /**
@@ -187,7 +195,7 @@
          * @private
          */
         function _checksum(string) {
-            var hash = 0, i, chr;
+            let hash = 0, i, chr;
             if (string.length === 0) return hash;
             for (i = 0; i < string.length; i++) {
                 chr = string.charCodeAt(i);
@@ -204,9 +212,9 @@
          * @private
          */
         function _updateSchema(schemaVersion, updates) {
-            var defer = $q.defer();
+            let defer = $q.defer();
 
-            var pendingUpdates = updates.filter(function (update) {
+            let pendingUpdates = updates.filter(function (update) {
                 return update.version > schemaVersion;
             }).sort((a, b) => {
                 return (a.version > b.version) ? 1 : (b.version > a.version) ? -1 : 0;
@@ -229,7 +237,7 @@
          * @private
          */
         function _executeUpdate(promise, updates, updateIndex) {
-            var currentUpdate = updates[updateIndex];
+            let currentUpdate = updates[updateIndex];
 
             _transaction(_database, function (tx) {
                 tx.executeSql(currentUpdate.script, [], function (tx, results) {
