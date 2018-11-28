@@ -11,7 +11,7 @@
         /* stored db during an update */
         let _database = null;
 
-        /* we do not want this function to be called during an update */
+        /* To make sure that we cannot run the initialize function while we are already running this function */
         let _active = false;
 
         return {
@@ -32,9 +32,9 @@
 
             let defer = $q.defer();
             if (!_active) {
+                _active = true;
                 _logger = logger;
                 _database = database;
-                _active = true;
 
                 _transaction(_database, function (tx) {
                     tx.executeSql("CREATE TABLE IF NOT EXISTS schema_version (version INTEGER NOT NULL PRIMARY KEY, checksum INTEGER NOT NULL)", [], function () {
