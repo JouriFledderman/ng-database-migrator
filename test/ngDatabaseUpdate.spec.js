@@ -15,14 +15,14 @@ describe('Test DatabaseUpdater', function() {
         }
     ];
 
+    var lower_version = {
+        version: 201704121212,
+        script: 'CREATE TABLE IF NOT EXISTS Dog (id INTEGER PRIMARY KEY, extid VARCHAR (255))'
+    };
+
     var incorrect_checksum = {
         version: 201810230927,
         script: 'CREATE TABLE IF NOT EXISTS Inrusance (id INTEGER PRIMAY KEY, extid VARCHAR (255))'
-    };
-
-    var older_version = {
-        version: 201704121212,
-        script: 'CREATE TABLE IF NOT EXISTS Dog (id INTEGER PRIMARY KEY, extid VARCHAR (255))'
     };
 
     var $databaseupdater, $q, $rootScope, db, logger, guid;
@@ -51,7 +51,7 @@ describe('Test DatabaseUpdater', function() {
 
     describe('.initialize()', function() {
         it('should be able to perform default updates', (done) => {
-            $databaseupdater.initialize(db, [older_version, updates[0], updates[1], updates[2]], null /* replace me with logger to get console output */).then(function (schema_version) {
+            $databaseupdater.initialize(db, [lower_version, updates[0], updates[1], updates[2]], null /* replace me with logger to get console output */).then(function (schema_version) {
                 expect(schema_version).toEqual(201810230927);
                 done();
             }).catch(function (error) {
@@ -61,7 +61,7 @@ describe('Test DatabaseUpdater', function() {
             _waitAndDigest();
         });
 
-        it ('should handle the same set of updates correctly twice', (done) => {
+        it ('should handle the same set of updates correctly twice (once executing the scripts and once skipping them after checksum validation)', (done) => {
             $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
                 expect(schema_version).toEqual(201810230927);
                 $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
@@ -78,7 +78,7 @@ describe('Test DatabaseUpdater', function() {
             _waitAndDigest();
         });
 
-        it ('should return null when already running without interrupting the other', (done) => {
+        it ('should return null when already running without interrupting the first run', (done) => {
             $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
                 expect(schema_version).toEqual(201810230927);
             }).catch(function (error) {
@@ -130,7 +130,7 @@ describe('Test DatabaseUpdater', function() {
             _waitAndDigest();
         });
 
-        it ('should fail second time when running with different checksum', (done) => {
+        it ('should fail second time when running because checksum does not match', (done) => {
             $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
                 expect(schema_version).toEqual(201810230927);
                 $databaseupdater.initialize(db, [updates[0], updates[1], incorrect_checksum], null /* replace me with logger to get console output */).then(function () {
@@ -147,10 +147,10 @@ describe('Test DatabaseUpdater', function() {
             _waitAndDigest();
         });
 
-        it ('should fail second time when running with older script', (done) => {
+        it ('should fail second time when running unknown script with lower version number', (done) => {
             $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
                 expect(schema_version).toEqual(201810230927);
-                $databaseupdater.initialize(db, [updates[0], updates[1], updates[2], older_version], null /* replace me with logger to get console output */).then(function () {
+                $databaseupdater.initialize(db, [updates[0], updates[1], updates[2], lower_version], null /* replace me with logger to get console output */).then(function () {
                     logger.error("this should not happen");
                 }).catch(function(error) {
                     expect(error.message).toEqual('The following updates were found current set of updates, but not in the in the database: 201704121212');
