@@ -17,5 +17,14 @@
     "migrations"
   ],
   "author": "Jouri Fledderman <jouri.fledderman@luminis.eu>",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "angular": "^1.7.5",
+    "angular-mocks": "^1.7.5",
+    "angular-ui-router": "^1.0.20",
+    "jasmine-core": "^3.3.0",
+    "karma": "^3.1.1",
+    "karma-chrome-launcher": "^2.2.0",
+    "karma-jasmine": "^2.0.1"
+  }
 }

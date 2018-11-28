@@ -1,9 +1,12 @@
 (function () {
     'use strict';
+    angular
+        .module('ngDatabaseUpdater', [])
+        .factory('$databaseupdater', $databaseupdater);
 
-    angular.module('ngDatabaseUpdater', []);
+    $databaseupdater.$inject = ['$q'];
 
-    angular.module('ngDatabaseUpdater').factory('$databaseupdater', ['$q', function ($q) {
+    function $databaseupdater($q) {
 
         /* stored logger during an update */
         let _logger = null;
@@ -13,10 +16,6 @@
 
         /* To make sure that we cannot run the initialize function while we are already running this function */
         let _active = false;
-
-        return {
-            initialize: initialize
-        };
 
         /**
          * @param database - the database to validate the updates against
@@ -59,11 +58,15 @@
                                         _log('info', 'Schema updated from version ' + schemaVersion + ' to ' + updateVersion);
                                     }
                                     _tearDown();
-                                    defer.resolve();
+                                    defer.resolve(updateVersion);
                                 }).catch(function (error) {
+                                    _log('info', 'Something went wrong while updating the database');
+                                    _log('error', error.message);
+                                    _tearDown();
                                     defer.reject(error);
                                 });
                             } else {
+                                _tearDown();
                                 defer.reject();
                             }
                         });
@@ -77,7 +80,7 @@
                 });
             } else {
                 _log('info', 'Updater is already running, skipping updates');
-                defer.resolve();
+                defer.resolve(null);
             }
 
             return defer.promise;
@@ -304,9 +307,14 @@
                         _logger.warn(message);
                         break;
                     default:
-                        _logger.debug(message);
+                        _logger.info(message);
                 }
             }
         }
-    }]);
+
+        return {
+            initialize: initialize
+        };
+
+    }
 })();
