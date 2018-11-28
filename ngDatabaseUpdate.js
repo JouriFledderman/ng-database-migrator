@@ -50,25 +50,27 @@
                             _log('info', "Schema is currently at version " + schemaVersion);
                             _log('info', "Checking for updates...");
 
-                            if (_checksumvalid(schemaVersion, updates, resultArr)) {
-                                _updateSchema(schemaVersion, updates).then(function (updateVersion) {
-                                    if (schemaVersion === updateVersion) {
-                                        _log('info', 'No updates found! Schema is up to date');
-                                    } else {
-                                        _log('info', 'Schema updated from version ' + schemaVersion + ' to ' + updateVersion);
-                                    }
+                            _checksumvalid(schemaVersion, updates, resultArr, function(checksumValid, error) {
+                                if (checksumValid) {
+                                    _updateSchema(schemaVersion, updates).then(function (updateVersion) {
+                                        if (schemaVersion === updateVersion) {
+                                            _log('info', 'No updates found! Schema is up to date');
+                                        } else {
+                                            _log('info', 'Schema updated from version ' + schemaVersion + ' to ' + updateVersion);
+                                        }
+                                        _tearDown();
+                                        defer.resolve(updateVersion);
+                                    }).catch(function (error) {
+                                        _log('info', 'Something went wrong while updating the database');
+                                        _log('error', error.message);
+                                        _tearDown();
+                                        defer.reject(error);
+                                    });
+                                } else {
                                     _tearDown();
-                                    defer.resolve(updateVersion);
-                                }).catch(function (error) {
-                                    _log('info', 'Something went wrong while updating the database');
-                                    _log('error', error.message);
-                                    _tearDown();
-                                    defer.reject(error);
-                                });
-                            } else {
-                                _tearDown();
-                                defer.reject({message: 'There was a mismatch between versions in the database and the changeset'});
-                            }
+                                    defer.reject({message: error});
+                                }
+                            })
                         });
                     });
                 }, function (error) {
@@ -127,8 +129,9 @@
          * @param schemaVersion - current schema version
          * @private
          */
-        function _checksumvalid(schemaVersion, updates, results) {
+        function _checksumvalid(schemaVersion, updates, results, callback) {
             let updatesValid = true;
+            let error = null;
 
             let previouslyExecutedUpdates = updates.filter(function (update) {
                 return update.version <= schemaVersion;
@@ -141,10 +144,12 @@
 
             if (disjuntionResults.length > 0 || disjuntionUpdates.length > 0) {
                 if (disjuntionResults.length > 0) {
-                    _log('error', 'the following updates were found current set of updates, but not in the in the database: ' + disjuntionResults)
+                    error = 'The following updates were found in the database, but not in the current set of updates: ' + disjuntionResults;
+                    _log('error', error);
                 }
                 if (disjuntionUpdates.length > 0) {
-                    _log('error', 'the following updates were found in the database, but not in the current set of updates: ' + disjuntionUpdates)
+                    error = 'The following updates were found current set of updates, but not in the in the database: ' + disjuntionUpdates;
+                    _log('error', error);
                 }
                 updatesValid = false;
             } else {
@@ -152,7 +157,8 @@
                     results.forEach(function(result) {
                         let update = updates.filter(item => item.version === result.version)[0];
                         if (result.checksum !== _checksum(update.script)) {
-                            _log('error', 'Incorrect checksum found for script with version ' + update.version + '. File has checksum ' + _checksum(update.script) + ' while database has checksum ' + result.checksum);
+                            error = 'Incorrect checksum found for script with version ' + update.version + '. File has checksum ' + _checksum(update.script) + ' while database has checksum ' + result.checksum;
+                            _log('error', error);
                             updatesValid = false;
                         } else {
                             _log('info', 'Checksum is valid for script with version ' + update.version);
@@ -165,7 +171,7 @@
                 _log('info', 'All checksums are valid');
             }
 
-            return updatesValid;
+            callback(updatesValid, error);
         }
 
         /**
