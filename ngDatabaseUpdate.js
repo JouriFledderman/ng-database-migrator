@@ -67,7 +67,7 @@
                                 });
                             } else {
                                 _tearDown();
-                                defer.reject();
+                                defer.reject({message: 'There was a mismatch between versions in the database and the changeset'});
                             }
                         });
                     });
@@ -76,7 +76,7 @@
                     _log('error', error.message);
 
                     _tearDown();
-                    defer.reject();
+                    defer.reject(error);
                 });
             } else {
                 _log('info', 'Updater is already running, skipping updates');
@@ -148,7 +148,6 @@
                 }
                 updatesValid = false;
             } else {
-
                 if (results != null && results.length > 0) {
                     results.forEach(function(result) {
                         let update = updates.filter(item => item.version === result.version)[0];

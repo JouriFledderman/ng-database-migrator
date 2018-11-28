@@ -15,6 +15,11 @@ describe('Database updater', function() {
         }
     ];
 
+    var incorrect_checksum = {
+        version: 201810230927,
+        script: 'CREATE TABLE IF NOT EXISTS Inrusance (id INTEGER PRIMAY KEY, extid VARCHAR (255))'
+    };
+
     var $databaseupdater, $q, $rootScope, db, logger, guid;
 
     beforeEach(module('ngDatabaseUpdater'));
@@ -26,10 +31,6 @@ describe('Database updater', function() {
         $rootScope = _$rootScope_;
         $q = _$q_;
     }));
-
-    afterEach(function() {
-
-    });
 
     it('factory should exist', function() {
         expect($databaseupdater).toBeDefined();
@@ -45,36 +46,88 @@ describe('Database updater', function() {
 
     describe('.initialize()', function() {
         it('should be able to perform default updates', (done) => {
-            $databaseupdater.initialize(db, updates, logger).then(function (schema_version) {
-                logger.log(schema_version);
+            $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
+                expect(schema_version).toEqual(201810230927);
                 done();
             }).catch(function (error) {
                 logger.error(error);
             });
 
-            setTimeout(function() {
-                $rootScope.$digest();
-            }, 100);
+            _waitAndDigest();
         });
 
-        it ('should be able to perform updates twice', (done) => {
-            $databaseupdater.initialize(db, updates, logger).then(function () {
-                $databaseupdater.initialize(db, updates, logger).then(function (schema_version) {
-                    logger.log(schema_version);
+        it ('should handle the same set of updates correctly twice', (done) => {
+            $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
+                expect(schema_version).toEqual(201810230927);
+                $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
+                    expect(schema_version).toEqual(201810230927);
                     done();
                 }).catch(function(error) {
                     logger.error(error);
                 });
-                setTimeout(function() {
-                    $rootScope.$digest();
-                }, 100);
+                _waitAndDigest();
             }).catch(function (error) {
                 logger.error(error);
             });
 
-            setTimeout(function() {
-                $rootScope.$digest();
-            }, 100);
+            _waitAndDigest();
+        });
+
+        it ('should return null when already running without interrupting the other', (done) => {
+            $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
+                expect(schema_version).toEqual(201810230927);
+            }).catch(function (error) {
+                logger.error(error);
+            });
+
+            $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
+                expect(schema_version).toEqual(null);
+                done();
+            }).catch(function (error) {
+                logger.error(error);
+            });
+
+            _waitAndDigest();
+        });
+
+        it ('should fail second time when running two completely different changesets', (done) => {
+            $databaseupdater.initialize(db, [updates[0], updates[2]], null /* replace me with logger to get console output */).then(function (schema_version) {
+                expect(schema_version).toEqual(201810230927);
+                $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function () {
+                    logger.error("this should not happen");
+                }).catch(function(error) {
+                    expect(error.message).toEqual('There was a mismatch between versions in the database and the changeset');
+                    done();
+                });
+                _waitAndDigest();
+            }).catch(function (error) {
+                logger.error(error);
+            });
+
+            _waitAndDigest();
+        });
+
+        it ('should fail second time when running with different checksum', (done) => {
+            $databaseupdater.initialize(db, updates, null /* replace me with logger to get console output */).then(function (schema_version) {
+                expect(schema_version).toEqual(201810230927);
+                $databaseupdater.initialize(db, [updates[0], updates[1], incorrect_checksum], null /* replace me with logger to get console output */).then(function () {
+                    logger.error("this should not happen");
+                }).catch(function(error) {
+                    expect(error.message).toEqual('There was a mismatch between versions in the database and the changeset');
+                    done();
+                });
+                _waitAndDigest();
+            }).catch(function (error) {
+                logger.error(error);
+            });
+
+            _waitAndDigest();
         });
     });
+
+    function _waitAndDigest() {
+        setTimeout(function() {
+            $rootScope.$digest();
+        }, 100);
+    }
 });
