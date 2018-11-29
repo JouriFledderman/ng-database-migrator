@@ -4,8 +4,7 @@
 In the backend there are lots of tools helping you update your database safely to the next version, such as Liquibase
 or FlywayDB). When you look at the frontend frameworks there is significantly less tooling available. But it is not 
 unthinkable to have an SQLite database running in an app, or on a website. And it is thus not unthinkable that this 
-database should be updated as well at a certain moment. ng-database-updater is a plugin that helps you do this in a 
-safe and secure way.
+database should be updated as well at a certain moment. But how do you safely update a database that is running on a client? ng-database-updater is a plugin that helps you do this in a safe and secure way.
 
 It will automatically create a schema_version table for your SQLite database and it will verify which of the sql updates
 is already executed and which of the updates is still pending. From the already executed scripts it will check if the 
