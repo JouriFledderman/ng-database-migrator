@@ -18,8 +18,8 @@ module.exports = function(config) {
         './node_modules/angular/angular.js',
         './node_modules/angular-ui-router/release/angular-ui-router.js',
         './node_modules/angular-mocks/angular-mocks.js',
-        './ngDatabaseUpdate.js',
-        './test/ngDatabaseUpdate.spec.js'
+        './ngDatabaseUpdater.js',
+        './test/ngDatabaseUpdater.spec.js'
     ],
 
 
