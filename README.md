@@ -14,9 +14,13 @@ with a newer version then the current database version. And each update will be 
 be verified for its checksum next time and it will not be executed again. 
 
 ## Installation
+For both NPM and Bower don't forget to reference the installed plugin to your `index.html` file (for example: 'lib/ng-database-updater/ngDatabaseUpdater.js'). 
 
 ### Bower
-run: `bower install git+https://github.com/JouriFledderman/ng-database-update.git` and add the plugin to your `index.html` file. 
+run: `bower install git+https://github.com/JouriFledderman/ng-database-update.git`
+
+### NPM
+run: `npm install ng-database-updater`
 
 ## Usage
 When you add the ngDatabaseUpdate module to your angularJS project the `$databaseupdater` becomes available. It is then possible to inject this somewhere in your project. In order to check for and execute updates, run the initialize function. This aync function needs the following arguments: database, set of updates, logger
