@@ -61,10 +61,8 @@
                                         _tearDown();
                                         defer.resolve(updateVersion);
                                     }).catch(function (error) {
-                                        _log('info', 'Something went wrong while updating the database');
-                                        _log('error', error.message);
                                         _tearDown();
-                                        defer.reject(error);
+                                        defer.reject({message: error});
                                     });
                                 } else {
                                     _tearDown();
@@ -78,7 +76,7 @@
                     _log('error', error.message);
 
                     _tearDown();
-                    defer.reject(error);
+                    defer.reject({message: error});
                 });
             } else {
                 _log('info', 'Updater is already running, skipping updates');
@@ -276,17 +274,15 @@
                         }
                     }, function (error) {
                         _log('info', 'Something went wrong while inserting version ' + currentUpdate.version + ' into schema version table, this should not happen!');
-                        _log('error', error.message);
-                        promise.reject(error);
+                        promise.reject('Something went wrong while inserting version ' + currentUpdate.version + ' into schema version table, this should not happen!');
                     });
                 }, function (error) {
                     _log('info', 'Something went wrong while updating database to ' + currentUpdate.version + ', update was not executed');
-                    _log('error', error.message);
-                    promise.reject(error);
+                    promise.reject('Something went wrong while updating database to ' + currentUpdate.version + ', update was not executed');
                 })
             }, function(error) {
                 _log('error', error.message);
-                promise.reject(error);
+                promise.reject(error.message);
             })
         }
 
